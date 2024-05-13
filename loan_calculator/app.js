@@ -1,7 +1,17 @@
 const HTTP = require('http');
 const URL = require('url').URL;
+const QUERYSTRING = require('querystring');
 const HANDLEBARS = require('handlebars');
-const FS = require('node:fs');
+const FS = require('fs');
+const PATH = require('path');
+
+const MIME_TYPES = {
+  '.css': 'text/css',
+  '.js': 'application/javascript',
+  '.jpg': 'image/jpeg',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+}
 
 const PORT = 3000;
 const BASE_URL = `http://localhost:${PORT}`;
@@ -14,19 +24,11 @@ const DURATION_INCREMENT = 1;
  * - APR fixed at 5%
  * - loan amount ($) and duration (years) passed in as query string params
  * - calculate the monthly loan payment
- * - display the following in plain text, one per line:
+ * - display the following:
  *   - loan amount (principal) in dollars
  *   - loan duration in years
  *   - APR as a percentage
  *   - monthly payment in dollars
- * 
- * monthlyPayment():
- * - given a principal, duration, and APR
- * - get monthly interest rate (MPR): APR / 12
- * - get duration in months: duration * 12
- * - denom: 1 - (1 + MPR) ** -durationMonths
- * - monthly interest: principal * MPR / denom
- * - return monthly interest
  */
 const LOAN_FORM_SOURCE = `
 <!DOCTYPE html>
@@ -40,7 +42,7 @@ const LOAN_FORM_SOURCE = `
 <body>
   <article>
     <h1>Loan Calculator</h1>
-    <form action="/loan-offer" method="get">
+    <form action="/loan-offer" method="post">
       <p>All loans are offered at an APR of {{apr}}%</p>
       <label for="amount">How much do you want to borrow (in dollars)?</label>
       <input type="number" name="amount" id="amount" value="">
@@ -104,6 +106,7 @@ const LOAN_OFFER_SOURCE = `
 const LOAN_FORM_TEMPLATE = HANDLEBARS.compile(LOAN_FORM_SOURCE);
 const LOAN_OFFER_TEMPLATE = HANDLEBARS.compile(LOAN_OFFER_SOURCE);
 
+
 function render(template, data) {
   let html = template(data);
   return html;
@@ -115,65 +118,90 @@ function getPathname(path) {
 
 function getLoanParams(reqUrl) {
   const url = new URL(reqUrl, BASE_URL);
-  const principal = Number(url.searchParams.get('amount'));
-  const durationYears = Number(url.searchParams.get('duration'));
-  const APR = Number(url.searchParams.get('apr') ?? DEFAULT_APR);
-  return { principal, durationYears, APR };
+  const amount = Number(url.searchParams.get('amount'));
+  const duration = Number(url.searchParams.get('duration'));
+  const apr = Number(url.searchParams.get('apr') ?? DEFAULT_APR);
+  return { amount, duration, apr };
 }
 
-function monthlyPayment(principal, durationYears, APR = DEFAULT_APR) {
+function parseFormData(req, callback) {
+  let body = '';
+  req.on('data', (chunk) => {
+    body += chunk.toString();
+  });
+
+  req.on('end', () => {
+    const data = QUERYSTRING.parse(body);
+    data.amount = Number(data.amount);
+    data.duration = Number(data.duration);
+    data.apr = Number(data.apr ?? DEFAULT_APR);
+    callback(data);
+  });
+}
+
+function monthlyPayment(amount, durationYears, APR = DEFAULT_APR) {
   const MONTHS_PER_YEAR = 12;
   const MPR = APR / MONTHS_PER_YEAR;
   const durationMonths = durationYears * MONTHS_PER_YEAR;
   const denom = 1 - ((1 + MPR / 100) ** -durationMonths);
-  const monthlyInterest = principal * (MPR / 100) / denom;
+  const monthlyInterest = amount * (MPR / 100) / denom;
   return monthlyInterest.toFixed(2);
 }
 
-function loanValues(reqUrl) {
-  const { principal, durationYears, APR } = getLoanParams(reqUrl);
-  const payment = monthlyPayment(principal, durationYears, APR);
+function createLoanOffer(data) {
   return {
-    amount: principal,
-    duration: durationYears,
-    apr: APR,
-    payment,
-  }
-}
-
-function createTemplateData(loan) {
-  return {
-    ...loan,
-    amountIncrement: loan.amount + AMOUNT_INCREMENT,
-    amountDecrement: loan.amount - AMOUNT_INCREMENT,
-    durationIncrement: loan.duration + DURATION_INCREMENT,
-    durationDecrement: loan.duration - DURATION_INCREMENT,
+    ...data,
+    payment: monthlyPayment(data.amount, data.duration, data.apr),
+    amountIncrement: data.amount + AMOUNT_INCREMENT,
+    amountDecrement: data.amount - AMOUNT_INCREMENT,
+    durationIncrement: data.duration + DURATION_INCREMENT,
+    durationDecrement: data.duration - DURATION_INCREMENT,
   }
 }
 
 const SERVER = HTTP.createServer((req, res) => {
   console.log({ method: req.method, url: req.url });
   const path = getPathname(req.url);
-  if (path === '/') {
-    const content = render(LOAN_FORM_TEMPLATE, {apr: DEFAULT_APR});
+  let fileExtension = PATH.extname(path);
+  FS.readFile(`./public${path}`, (err, data) => {
+    if (data) {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', `${MIME_TYPES[fileExtension]}`)
+      res.write(`${data}\n`);
+      res.end();
+    } else {
+      if (req.method === 'GET' && path === '/') {
+        const content = render(LOAN_FORM_TEMPLATE, {apr: DEFAULT_APR});
+    
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'text/html');
+        res.write(`${content}\n`);
+        res.end();
+      } else if (req.method === 'GET' && path === '/loan-offer') {
+        const data = createLoanOffer(getLoanParams(req.url));
+        console.log(data);
+        const content = render(LOAN_OFFER_TEMPLATE, data);
+    
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'text/html');
+        res.write(`${content}\n`);
+        res.end();
+      } else if (req.method === 'POST' && path === '/loan-offer') {
+        parseFormData(req, (parsedData) => {
+          const data = createLoanOffer(parsedData);
+          const content = render(LOAN_OFFER_TEMPLATE, data);
 
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/html');
-    res.write(`${content}\n`);
-    res.end();
-  } else if (path === '/loan-offer') {
-    const loan = loanValues(req.url);
-    const data = createTemplateData(loan);
-    const content = render(LOAN_OFFER_TEMPLATE, data);
-
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/html');
-    res.write(`${content}\n`);
-    res.end();
-  } else {
-    res.statusCode = 400;
-    res.end();
-  }
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'text/html');
+          res.write(`${content}\n`);
+          res.end();
+        });
+      } else {
+        res.statusCode = 400;
+        res.end();
+      }
+    }
+  });
 });
 
 SERVER.listen(PORT, () => {
