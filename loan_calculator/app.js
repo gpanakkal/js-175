@@ -101,7 +101,7 @@ const SOURCE = `
           </tr>
           <tr>
             <th>Monthly payment:</th>
-            <td> colspan='3'>$ {{payment}}</td>
+            <td colspan='3'>$ {{payment}}</td>
           </tr>
         </tbody>
       </table>
@@ -189,26 +189,30 @@ function loanValues(reqUrl) {
 
 function createTemplateData(loan) {
   return {
-    amount: loan.amount.value,
-    amountIncrement: loan.amount.value + AMOUNT_INCREMENT,
-    amountDecrement: loan.amount.value - AMOUNT_INCREMENT,
-    duration: loan.duration.value,
-    durationIncrement: loan.duration.value + DURATION_INCREMENT,
-    durationDecrement: loan.duration.value - DURATION_INCREMENT,
-    apr: loan.APR.value,
-    payment: loan.payment.value
+    ...loan,
+    amountIncrement: loan.amount + AMOUNT_INCREMENT,
+    amountDecrement: loan.amount - AMOUNT_INCREMENT,
+    durationIncrement: loan.duration + DURATION_INCREMENT,
+    durationDecrement: loan.duration - DURATION_INCREMENT,
   }
 }
 
 const SERVER = HTTP.createServer((req, res) => {
   console.log({ method: req.method, url: req.url });
-  const loan = loanValues(req.url);
-  res.statusCode = 200;
-  res.setHeader('Content-Type', 'text/html');
-  const data = createTemplateData(loan);
-  const content = [HTML_START, generateTable(loan), HTML_END].join('\n');
-  res.write(`${content}\n`);
-  res.end();
+
+  if (path === '/favicon.ico') {
+    res.statusCode = 400;
+    res.end();
+  } else {
+    const loan = loanValues(req.url);
+    const data = createTemplateData(loan);
+    const content = render(LOAN_OFFER_TEMPLATE, data);
+    
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/html');
+    res.write(`${content}\n`);
+    res.end();
+  }
 });
 
 SERVER.listen(PORT, () => {
