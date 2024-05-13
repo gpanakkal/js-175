@@ -1,6 +1,7 @@
 const HTTP = require('http');
 const URL = require('url').URL;
 const HANDLEBARS = require('handlebars');
+const FS = require('node:fs');
 
 const PORT = 3000;
 const BASE_URL = `http://localhost:${PORT}`;
@@ -27,56 +28,14 @@ const DURATION_INCREMENT = 1;
  * - monthly interest: principal * MPR / denom
  * - return monthly interest
  */
-const LOAN_FORM_SOURCE = `<!DOCTYPE html>
+const LOAN_FORM_SOURCE = `
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Loan Calculator</title>
-  <style type="text/css">
-    body {
-      background: rgba(250, 250, 250);
-      font-family: sans-serif;
-      color: rgb(50, 50 50);
-    }
-
-    article {
-      width: 100%;
-      max-width: 40rem;
-      margin: 0 auto;
-      padding: 1rem 2rem;
-    }
-
-    h1 {
-      font-size: 2.5rem;
-      text-align: center;
-    }
-
-    form, input {
-      font-size: 1.5rem;
-    }
-
-    form p {
-      text-align: center;
-    }
-
-    label, input {
-      display: block;
-      width: 100%;
-      padding: 0.5rem;
-      margin-top: 0.5rem;
-    }
-
-    input[type="submit"] {
-      width: autho;
-      margin: 1rem auto;
-      cursor: pointer;
-      color: #fff;
-      background-color: #01d28e;
-      border: none;
-      border-radius: 0.3rem;
-    }
-  </style>
+  <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
   <article>
@@ -91,7 +50,8 @@ const LOAN_FORM_SOURCE = `<!DOCTYPE html>
     </form>
   </article>
 </body>
-</html>`;
+</html>
+`;
 
 const LOAN_OFFER_SOURCE = `
 <!DOCTYPE html>
@@ -99,41 +59,7 @@ const LOAN_OFFER_SOURCE = `
   <head>
     <meta charset='utf-8'>
     <title>Loan Calculator</title>
-    <style type="text/css">
-      body {
-        background: rgba(250, 250, 250);
-        font-family: sans-serif;
-        color: rgb(50, 50, 50);
-      }
-
-      article {
-        width: 100%;
-        max-width: 40rem;
-        margin: 0 auto;
-        padding: 1rem 2rem;
-      }
-
-      h1 {
-        font-size: 2.5rem;
-        text-align: center;
-      }
-
-      table {
-        font-size: 1.5rem;
-      }
-    
-      th {
-        text-align: right;
-      }
-
-      td {
-        text-align: center;
-      }
-
-      th, td {
-        padding: 0.5rem;
-      }
-    </style>
+    <link rel="stylesheet" href="/assets/style.css">
   </head>
   <body>
     <article>
