@@ -27,8 +27,73 @@ const DURATION_INCREMENT = 1;
  * - monthly interest: principal * MPR / denom
  * - return monthly interest
  */
+const LOAN_FORM_SOURCE = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loan Calculator</title>
+  <style type="text/css">
+    body {
+      background: rgba(250, 250, 250);
+      font-family: sans-serif;
+      color: rgb(50, 50 50);
+    }
 
-const SOURCE = `
+    article {
+      width: 100%;
+      max-width: 40rem;
+      margin: 0 auto;
+      padding: 1rem 2rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      text-align: center;
+    }
+
+    form, input {
+      font-size: 1.5rem;
+    }
+
+    form p {
+      text-align: center;
+    }
+
+    label, input {
+      display: block;
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    input[type="submit"] {
+      width: autho;
+      margin: 1rem auto;
+      cursor: pointer;
+      color: #fff;
+      background-color: #01d28e;
+      border: none;
+      border-radius: 0.3rem;
+    }
+  </style>
+</head>
+<body>
+  <article>
+    <h1>Loan Calculator</h1>
+    <form action="/loan-offer" method="get">
+      <p>All loans are offered at an APR of {{apr}}%</p>
+      <label for="amount">How much do you want to borrow (in dollars)?</label>
+      <input type="number" name="amount" id="amount" value="">
+      <label for="duration">How much time do you want to pay back your loan?</label>
+      <input type="number" name="duration" id="duration" value="">
+      <input type="submit" name="" value="Get loan offer!"> 
+    </form>
+  </article>
+</body>
+</html>`;
+
+const LOAN_OFFER_SOURCE = `
 <!DOCTYPE html>
 <html lang='en'>
   <head>
@@ -78,21 +143,21 @@ const SOURCE = `
           <tr>
             <th>Amount:</th>
             <td>
-              <a href='/?amount={{amountDecrement}}&duration={{duration}}'>- $100</a>
+              <a href='/loan-offer?amount={{amountDecrement}}&duration={{duration}}'>- $100</a>
             </td>
             <td>$ {{amount}}</td>
             <td>
-              <a href='/?amount={{amountIncrement}}&duration={{duration}}'>+ $100</a>
+              <a href='/loan-offer?amount={{amountIncrement}}&duration={{duration}}'>+ $100</a>
             </td>
           </tr>
           <tr>
             <th>Duration:</th>
             <td>
-              <a href='/?amount={{amount}}&duration={{durationDecrement}}'>- 1 year</a>
+              <a href='/loan-offer?amount={{amount}}&duration={{durationDecrement}}'>- 1 year</a>
             </td>
             <td>{{duration}} years</td>
             <td>
-              <a href='/?amount={{amount}}&duration={{durationIncrement}}'>+ 1 year</a>
+              <a href='/loan-offer?amount={{amount}}&duration={{durationIncrement}}'>+ 1 year</a>
             </td>
           </tr>
           <tr>
@@ -110,53 +175,16 @@ const SOURCE = `
 </html>
 `;
 
-const LOAN_OFFER_TEMPLATE = HANDLEBARS.compile(SOURCE);
+const LOAN_FORM_TEMPLATE = HANDLEBARS.compile(LOAN_FORM_SOURCE);
+const LOAN_OFFER_TEMPLATE = HANDLEBARS.compile(LOAN_OFFER_SOURCE);
 
 function render(template, data) {
   let html = template(data);
   return html;
 }
 
-function tableRow(rowTitle, rowValues, attributes = '') {
-  const dataCells = rowValues.map((value) => `<td ${attributes}>${value}</td>`);
-  return `
-          <tr>
-            <th>${rowTitle}:</th>
-            ${dataCells.join('\n')}
-          </tr>`;
-}
-
-function incrementLinks(loan) {
-  const newAmountLink = (newValue, label) => `<a href="/?amount=${newValue}&duration=${loan.duration.value}">${label}</a>`
-  const incrementAmount = newAmountLink(loan.amount.value + AMOUNT_INCREMENT, `+ $${AMOUNT_INCREMENT}`);
-  const decrementAmount = newAmountLink(loan.amount.value - AMOUNT_INCREMENT, `- $${AMOUNT_INCREMENT}`);
-  
-  const newDurationLink = (newValue, label) => `<a href="/?amount=${loan.amount.value}&duration=${newValue}">${label}</a>`
-  const incrementYears = newDurationLink(loan.duration.value + DURATION_INCREMENT, `+ ${DURATION_INCREMENT} year`);
-  const decrementYears = newDurationLink(loan.duration.value - DURATION_INCREMENT, `- ${DURATION_INCREMENT} year`);
-  
-  return { incrementAmount, decrementAmount, incrementYears, decrementYears };
-}
-
-function generateTable (loan) {
-  const textLines = Object.values(loan).map((value) => value.str);
-  const links = incrementLinks(loan);
-  const rows = textLines.map((line) => {
-    const [title, value] = line.split(': ');
-    const values = [value];
-    if (title === 'Amount') {
-      values.unshift(links.decrementAmount);
-      values.push(links.incrementAmount);
-    } else if (title === 'Duration') {
-      values.unshift(links.decrementYears);
-      values.push(links.incrementYears);
-    } else {
-      return tableRow(title, values, `colspan='3'`);
-    }
-    return tableRow(title, values);
-  });
-
-  return rows.join('\n');
+function getPathname(path) {
+  return new URL(path, BASE_URL).pathname;
 }
 
 function getLoanParams(reqUrl) {
@@ -199,18 +227,25 @@ function createTemplateData(loan) {
 
 const SERVER = HTTP.createServer((req, res) => {
   console.log({ method: req.method, url: req.url });
+  const path = getPathname(req.url);
+  if (path === '/') {
+    const content = render(LOAN_FORM_TEMPLATE, {apr: DEFAULT_APR});
 
-  if (path === '/favicon.ico') {
-    res.statusCode = 400;
-    res.end();
-  } else {
-    const loan = loanValues(req.url);
-    const data = createTemplateData(loan);
-    const content = render(LOAN_OFFER_TEMPLATE, data);
-    
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html');
     res.write(`${content}\n`);
+    res.end();
+  } else if (path === '/loan-offer') {
+    const loan = loanValues(req.url);
+    const data = createTemplateData(loan);
+    const content = render(LOAN_OFFER_TEMPLATE, data);
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/html');
+    res.write(`${content}\n`);
+    res.end();
+  } else {
+    res.statusCode = 400;
     res.end();
   }
 });
