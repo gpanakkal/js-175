@@ -1,5 +1,7 @@
 const HTTP = require('http');
 const URL = require('url').URL;
+const HANDLEBARS = require('handlebars');
+
 const PORT = 3000;
 const BASE_URL = `http://localhost:${PORT}`;
 const DEFAULT_APR = 5;
@@ -26,7 +28,7 @@ const DURATION_INCREMENT = 1;
  * - return monthly interest
  */
 
-const HTML_START = `
+const SOURCE = `
 <!DOCTYPE html>
 <html lang='en'>
   <head>
@@ -72,14 +74,48 @@ const HTML_START = `
     <article>
       <h1>Loan Calculator</h1>
       <table>
-        <tbody>`;
-
-const HTML_END = `
+        <tbody>
+          <tr>
+            <th>Amount:</th>
+            <td>
+              <a href='/?amount={{amountDecrement}}&duration={{duration}}'>- $100</a>
+            </td>
+            <td>$ {{amount}}</td>
+            <td>
+              <a href='/?amount={{amountIncrement}}&duration={{duration}}'>+ $100</a>
+            </td>
+          </tr>
+          <tr>
+            <th>Duration:</th>
+            <td>
+              <a href='/?amount={{amount}}&duration={{durationDecrement}}'>- 1 year</a>
+            </td>
+            <td>{{duration}} years</td>
+            <td>
+              <a href='/?amount={{amount}}&duration={{durationIncrement}}'>+ 1 year</a>
+            </td>
+          </tr>
+          <tr>
+            <th>APR:</th>
+            <td colspan='3'>{{apr}}%</td>
+          </tr>
+          <tr>
+            <th>Monthly payment:</th>
+            <td> colspan='3'>$ {{payment}}</td>
+          </tr>
         </tbody>
       </table>
     </article>
   </body>
-</html>`;
+</html>
+`;
+
+const LOAN_OFFER_TEMPLATE = HANDLEBARS.compile(SOURCE);
+
+function render(template, data) {
+  let html = template(data);
+  return html;
+}
 
 function tableRow(rowTitle, rowValues, attributes = '') {
   const dataCells = rowValues.map((value) => `<td ${attributes}>${value}</td>`);
@@ -144,22 +180,23 @@ function loanValues(reqUrl) {
   const { principal, durationYears, APR } = getLoanParams(reqUrl);
   const payment = monthlyPayment(principal, durationYears, APR);
   return {
-    amount: {
-      value: principal,
-      str: `Amount: $${principal}`,
-    },
-    duration: {
-      value: durationYears,
-      str: `Duration: ${durationYears} years`,
-    },
-    APR: {
-      value: APR,
-      str: `APR: ${APR}%`,
-    },
-    payment: {
-      value: payment,
-      str: `Monthly payment: $${payment}`,
-    },
+    amount: principal,
+    duration: durationYears,
+    apr: APR,
+    payment,
+  }
+}
+
+function createTemplateData(loan) {
+  return {
+    amount: loan.amount.value,
+    amountIncrement: loan.amount.value + AMOUNT_INCREMENT,
+    amountDecrement: loan.amount.value - AMOUNT_INCREMENT,
+    duration: loan.duration.value,
+    durationIncrement: loan.duration.value + DURATION_INCREMENT,
+    durationDecrement: loan.duration.value - DURATION_INCREMENT,
+    apr: loan.APR.value,
+    payment: loan.payment.value
   }
 }
 
@@ -168,6 +205,7 @@ const SERVER = HTTP.createServer((req, res) => {
   const loan = loanValues(req.url);
   res.statusCode = 200;
   res.setHeader('Content-Type', 'text/html');
+  const data = createTemplateData(loan);
   const content = [HTML_START, generateTable(loan), HTML_END].join('\n');
   res.write(`${content}\n`);
   res.end();
