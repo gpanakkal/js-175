@@ -1,0 +1,28 @@
+extends layout
+
+block page_title 
+    title Ово је наслов странице
+
+block navigation_links 
+  ul
+    li
+      a(href="/english")
+        img.flag(src="/images/flag_us.png"
+                alt="US Flag"
+                title="Go to US English site")
+    li
+      a(href="/french")
+        img.flag(src="/images/flag_fr.png"
+                alt="Drapeau de la france"
+                title="Aller sur le site français")
+    li
+      a.current(href="/serbian")
+        img.flag(src="/images/flag_rs.png"
+                alt="Застава Србије"
+                title="Идите на српски сајт")
+
+block greeting 
+  h1 Здраво свете!
+
+block software_engineer
+  p Ускоро ћу бити софтверски инжењер!
