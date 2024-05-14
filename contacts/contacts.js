@@ -4,6 +4,7 @@ import morgan from 'morgan';
 const PORT = 3000;
 const HOST = 'localhost';
 const app = express();
+const MAX_NAME_LENGTH = 25;
 
 const contactData = [
   {
@@ -38,6 +39,30 @@ const sortContacts = (contacts) => {
   });
 };
 
+const validateName = (name, label) => {
+  const conditions = [
+    [
+      (name) => name.length > 0, 
+      (label) => `${label} is required.`
+    ],
+    [
+      (name) => name.length < MAX_NAME_LENGTH, 
+      (label) => `${label} must be ${MAX_NAME_LENGTH} characters or fewer.`
+    ],
+    [
+      (name) => !(/[^a-z]/i.test(firstName)), 
+      (label) => `${label} must only contain letters.`
+    ],
+  ]
+
+  const errorMessages = [];
+  conditions.forEach(([test, errorMsg]) => {
+    if (!test(name)) {
+      errorMessages.push(errorMsg);
+    }
+  });
+}
+
 app.set('views', './views');
 app.set('view engine', 'pug');
 
@@ -62,19 +87,35 @@ app.get('/contacts/new', (req, res) => {
 app.post('/contacts/new', 
   (req, res, next) => {
     res.locals.errorMessages = [];
-
+    req.body.firstName = req.body.firstName.trim();
+    req.body.lastName = req.body.lastName.trim();
+    req.body.phoneNumber = req.body.phoneNumber.trim();
     next();
   },
   (req, res, next) => {
-    if (req.body.firstName.length === 0) {
+    const { firstName } = req.body;
+    if (firstName.length === 0) {
       res.locals.errorMessages.push('First name is required.');
+    } 
+    if (firstName.length > MAX_NAME_LENGTH) {
+      res.locals.errorMessages.push(`First name must be ${MAX_NAME_LENGTH} characters or fewer`);
+    }
+    if (/[^a-z]/i.test(firstName)) {
+      res.locals.errorMessages.push(`First name must only contain letters`);
     }
 
     next();
   },
   (req, res, next) => {
-    if (req.body.lastName.length === 0) {
+    const { lastName } = req.body;
+    if (lastName.length === 0) {
       res.locals.errorMessages.push('Last name is required.');
+    } 
+    if (lastName.length > MAX_NAME_LENGTH) {
+      res.locals.errorMessages.push(`Last name must be ${MAX_NAME_LENGTH} characters or fewer`);
+    }
+    if (/[^a-z]/i.test(lastName)) {
+      res.locals.errorMessages.push(`Last name must only contain letters`);
     }
 
     next();
@@ -100,28 +141,6 @@ app.post('/contacts/new',
     contactData.push({ firstName, lastName, phoneNumber });
     res.redirect('/contacts');
   },
-
-// (req, res) => {
-//   const errorMessages = [];
-//   const { firstName, lastName, phoneNumber } = req.body;
-//   if (firstName.length === 0) {
-//     errorMessages.push('First name is required.');
-//   }
-//   if (lastName.length === 0) {
-//     errorMessages.push('Last name is required.');
-//   }
-//   if (phoneNumber.length === 0) {
-//     errorMessages.push('Phone number is required.');
-//   }
-//   if (errorMessages.length > 0) {
-//     res.render('new-contact-form', {
-//       errorMessages,
-//     });
-//   } else {
-//     contactData.push({ firstName, lastName, phoneNumber });
-//     res.redirect('/contacts');
-//   }
-// }
 );
 
 app.listen(PORT, HOST, () => {
