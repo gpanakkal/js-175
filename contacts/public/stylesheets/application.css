@@ -133,8 +133,8 @@ button.cancel:hover {
   max-width: 100%;
 }
 
-.flash li {
-  margin: 0.5rem auto;
+li.flash {
+  margin: 0.5rem 2rem;
   padding: 0.5rem 2rem;
 }
 

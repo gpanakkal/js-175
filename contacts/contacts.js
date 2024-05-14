@@ -3,6 +3,7 @@ import morgan from 'morgan';
 import { body, validationResult } from 'express-validator';
 import session from 'express-session';
 import store from 'connect-loki';
+import flash from 'express-flash';
 
 //#region constants
 const PORT = 3000;
@@ -88,6 +89,8 @@ app.use(session({
   store: new LokiStore({}),
 }));
 
+app.use(flash());
+
 app.use((req, res, next) => {
   if (!('contactData' in req.session)) {
     req.session.contactData = clone(contactData);
@@ -95,6 +98,12 @@ app.use((req, res, next) => {
 
   next();
 });
+
+app.use((req, res, next) => {
+  res.locals.flash = req.session.flash;
+  delete req.session.flash;
+  next();
+})
 //#endregion
 //#region routes
 app.get('/', (req, res) => {
@@ -127,8 +136,10 @@ app.post('/contacts/new',
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      errors.array().forEach((error) => req.flash('error', error.msg));
+      req.flash('info', "I'm a doctor, not a bricklayer.");
       res.render('new-contact-form', {
-        errorMessages: errors.array().map((error) => error.msg),
+        flash: req.flash(),
         firstName: res.locals.firstName,
         lastName: res.locals.lastName,
         phoneNumber: res.locals.phoneNumber,
@@ -140,6 +151,7 @@ app.post('/contacts/new',
   (req, res, next) => {
     const { firstName, lastName, phoneNumber } = req.body;
     req.session.contactData.push({ firstName, lastName, phoneNumber });
+    req.flash('success', 'New contact added!');
     res.redirect('/contacts');
   },
 );
