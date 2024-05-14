@@ -1,11 +1,17 @@
 import express from 'express';
 import morgan from 'morgan';
 import { body, validationResult } from 'express-validator';
+import session from 'express-session';
+import store from 'connect-loki';
 
+//#region constants
 const PORT = 3000;
 const HOST = 'localhost';
 const app = express();
+const LokiStore = store(session);
+
 const MAX_NAME_LENGTH = 25;
+const SESSION_MAXIMUM_AGE =  31 * 24 * 60 * 60 * 1000; // 31 days in milliseconds
 
 const contactData = [
   {
@@ -29,7 +35,8 @@ const contactData = [
     phoneNumber: "515-489-4608",
   },
 ];
-
+//#endregion
+//#region helper functions
 const sortContacts = (contacts) => {
   return [...contacts].sort((contactA, contactB) => {
     if (contactA.lastName !== contactB.lastName) {
@@ -39,38 +46,6 @@ const sortContacts = (contacts) => {
     } else return 0;
   });
 };
-
-// const validateName = (name, label) => {
-//   const conditions = [
-//     [
-//       (name) => name.length > 0, 
-//       (label) => `${label} is required.`
-//     ],
-//     [
-//       (name) => name.length < MAX_NAME_LENGTH, 
-//       (label) => `${label} must be ${MAX_NAME_LENGTH} characters or fewer.`
-//     ],
-//     [
-//       (name) => !(/[^a-z\s]/i.test(name)), 
-//       (label) => `${label} must contain only letters.`
-//     ],
-//     [
-//       (fullName) => (!Object.values(contactData)
-//         .map((contact) => `${contact.firstName} ${contact.lastName}`)
-//         .includes(fullName)), 
-//       () => `Full name must be unique.`
-//     ],
-//   ]
-
-//   const errorMessages = [];
-//   conditions.forEach(([test, errorMsg]) => {
-//     if (!test(name)) {
-//       errorMessages.push(errorMsg(label));
-//     }
-//   });
-
-//   return errorMessages;
-// }
 
 const capitalize = (str) => str.split('. ')
   .map((sentence) => sentence? sentence[0].toUpperCase() + sentence.slice(1) : '')
@@ -88,25 +63,47 @@ const validateName = (name, label) => {
   .withMessage(`${capitalize(label)} must contain only letters.`);
 };
 
-const isValidPhoneNumber = (number) => {
-  const regex = /^\d{3}-\d{3}-\d{4}$/;
-  return regex.test(number);
-};
-
+const clone = (obj) => JSON.parse(JSON.stringify(obj));
+//#endregion
+// templating engine
 app.set('views', './views');
 app.set('view engine', 'pug');
 
+//#region middleware
 app.use(express.static('public'));
 app.use(express.urlencoded({ extended: false }));
 app.use(morgan('common'));
 
+app.use(session({
+  cookie: {
+    httpOnly: true,
+    maxAge: SESSION_MAXIMUM_AGE,
+    path: '/',
+    secure: false,
+  },
+  name: 'launch-school-contacts-manager-session-id',
+  resave: false,
+  saveUninitialized: true,
+  secret: 'this is not very secure',
+  store: new LokiStore({}),
+}));
+
+app.use((req, res, next) => {
+  if (!('contactData' in req.session)) {
+    req.session.contactData = clone(contactData);
+  }
+
+  next();
+});
+//#endregion
+//#region routes
 app.get('/', (req, res) => {
   res.redirect('/contacts');
 });
 
 app.get('/contacts', (req, res) => {
   res.render('contacts', {
-    contacts: sortContacts(contactData),
+    contacts: sortContacts(req.session.contactData),
   });
 });
 
@@ -127,55 +124,6 @@ app.post('/contacts/new',
       .matches(/^\d{3}-\d{3}-\d{4}$/)
       .withMessage('Phone number format should be ###-###-####.')
   ],
-
-
-
-
-// (req, res, next) => {
-//     res.locals.errorMessages = [];
-//     res.locals.firstName = req.body.firstName.trim();
-//     res.locals.lastName = req.body.lastName.trim();
-//     res.locals.phoneNumber = req.body.phoneNumber.trim();
-//     next();
-//   },
-//   (req, res, next) => {
-//     res.locals.errorMessages.push(...validateName(res.locals.firstName, 'First name'));
-
-//     next();
-//   },
-//   (req, res, next) => {
-//     res.locals.errorMessages.push(...validateName(res.locals.lastName, 'Last name'));
-
-//     next();
-//   },
-//   (req, res, next) => {
-//     const fullName = `${res.locals.firstName} ${res.locals.lastName}`;
-//     res.locals.errorMessages.push(...validateName(fullName, 'Full name'));
-
-//     next();
-//   },
-//   (req, res, next) => {
-//     const phoneNumber = res.locals.phoneNumber;
-//     if (phoneNumber.length === 0) {
-//       res.locals.errorMessages.push('Phone number is required.');
-//     }
-//     if (!isValidPhoneNumber(phoneNumber)) {
-//       res.locals.errorMessages.push('Phone number format should be ###-###-####.');
-//     }
-//     next();
-//   },
-  // (req, res, next) => {
-  //   if (res.locals.errorMessages.length > 0) {
-  //     res.render('new-contact-form', {
-  //       errorMessages: res.locals.errorMessages,
-  //       firstName: res.locals.firstName,
-  //       lastName: res.locals.lastName,
-  //       phoneNumber: res.locals.phoneNumber,
-  //     });
-  //   } else {
-  //     next();
-  //   }
-  // },
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -191,11 +139,12 @@ app.post('/contacts/new',
   },
   (req, res, next) => {
     const { firstName, lastName, phoneNumber } = req.body;
-    contactData.push({ firstName, lastName, phoneNumber });
+    req.session.contactData.push({ firstName, lastName, phoneNumber });
     res.redirect('/contacts');
   },
 );
-
+//#endregion
+// server init
 app.listen(PORT, HOST, () => {
   console.log(`Listening on port ${PORT}...`);
 });
