@@ -59,11 +59,70 @@ app.get('/contacts/new', (req, res) => {
   res.render('new-contact-form');
 });
 
-app.post('/contacts/new', (req, res) => {
-  const { firstName, lastName, phoneNumber } = req.body;
-  contactData.push({ firstName, lastName, phoneNumber });
-  res.redirect('/contacts');
-});
+app.post('/contacts/new', 
+  (req, res, next) => {
+    res.locals.errorMessages = [];
+
+    next();
+  },
+  (req, res, next) => {
+    if (req.body.firstName.length === 0) {
+      res.locals.errorMessages.push('First name is required.');
+    }
+
+    next();
+  },
+  (req, res, next) => {
+    if (req.body.lastName.length === 0) {
+      res.locals.errorMessages.push('Last name is required.');
+    }
+
+    next();
+  },
+  (req, res, next) => {
+    if (req.body.phoneNumber.length === 0) {
+      res.locals.errorMessages.push('Phone number is required.');
+    }
+    
+    next();
+  },
+  (req, res, next) => {
+    if (res.locals.errorMessages.length > 0) {
+      res.render('new-contact-form', {
+        errorMessages: res.locals.errorMessages,
+      });
+    } else {
+      next();
+    }
+  },
+  (req, res, next) => {
+    const { firstName, lastName, phoneNumber } = req.body;
+    contactData.push({ firstName, lastName, phoneNumber });
+    res.redirect('/contacts');
+  },
+
+// (req, res) => {
+//   const errorMessages = [];
+//   const { firstName, lastName, phoneNumber } = req.body;
+//   if (firstName.length === 0) {
+//     errorMessages.push('First name is required.');
+//   }
+//   if (lastName.length === 0) {
+//     errorMessages.push('Last name is required.');
+//   }
+//   if (phoneNumber.length === 0) {
+//     errorMessages.push('Phone number is required.');
+//   }
+//   if (errorMessages.length > 0) {
+//     res.render('new-contact-form', {
+//       errorMessages,
+//     });
+//   } else {
+//     contactData.push({ firstName, lastName, phoneNumber });
+//     res.redirect('/contacts');
+//   }
+// }
+);
 
 app.listen(PORT, HOST, () => {
   console.log(`Listening on port ${PORT}...`);

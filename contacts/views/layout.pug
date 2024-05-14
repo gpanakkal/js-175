@@ -9,5 +9,10 @@ html(lang="en-US")
   body 
     header 
       h1 My Contacts Manager 
+
+    if errorMessages && errorMessages.length > 0
+      ul.flash 
+        each message in errorMessages 
+          li.error= message
     main 
       block content
