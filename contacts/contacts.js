@@ -50,17 +50,30 @@ const validateName = (name, label) => {
       (label) => `${label} must be ${MAX_NAME_LENGTH} characters or fewer.`
     ],
     [
-      (name) => !(/[^a-z]/i.test(firstName)), 
-      (label) => `${label} must only contain letters.`
+      (name) => !(/[^a-z\s]/i.test(name)), 
+      (label) => `${label} must contain only letters.`
+    ],
+    [
+      (fullName) => (!Object.values(contactData)
+        .map((contact) => `${contact.firstName} ${contact.lastName}`)
+        .includes(fullName)), 
+      () => `Full name must be unique.`
     ],
   ]
 
   const errorMessages = [];
   conditions.forEach(([test, errorMsg]) => {
     if (!test(name)) {
-      errorMessages.push(errorMsg);
+      errorMessages.push(errorMsg(label));
     }
   });
+
+  return errorMessages;
+}
+
+const isValidPhoneNumber = (number) => {
+  const regex = /\d{3}-\d{3}-\d{4}/;
+  return regex.test(number);
 }
 
 app.set('views', './views');
@@ -87,50 +100,44 @@ app.get('/contacts/new', (req, res) => {
 app.post('/contacts/new', 
   (req, res, next) => {
     res.locals.errorMessages = [];
-    req.body.firstName = req.body.firstName.trim();
-    req.body.lastName = req.body.lastName.trim();
-    req.body.phoneNumber = req.body.phoneNumber.trim();
+    res.locals.firstName = req.body.firstName.trim();
+    res.locals.lastName = req.body.lastName.trim();
+    res.locals.phoneNumber = req.body.phoneNumber.trim();
     next();
   },
   (req, res, next) => {
-    const { firstName } = req.body;
-    if (firstName.length === 0) {
-      res.locals.errorMessages.push('First name is required.');
-    } 
-    if (firstName.length > MAX_NAME_LENGTH) {
-      res.locals.errorMessages.push(`First name must be ${MAX_NAME_LENGTH} characters or fewer`);
-    }
-    if (/[^a-z]/i.test(firstName)) {
-      res.locals.errorMessages.push(`First name must only contain letters`);
-    }
+    res.locals.errorMessages.push(...validateName(res.locals.firstName, 'First name'));
 
     next();
   },
   (req, res, next) => {
-    const { lastName } = req.body;
-    if (lastName.length === 0) {
-      res.locals.errorMessages.push('Last name is required.');
-    } 
-    if (lastName.length > MAX_NAME_LENGTH) {
-      res.locals.errorMessages.push(`Last name must be ${MAX_NAME_LENGTH} characters or fewer`);
-    }
-    if (/[^a-z]/i.test(lastName)) {
-      res.locals.errorMessages.push(`Last name must only contain letters`);
-    }
+    res.locals.errorMessages.push(...validateName(res.locals.lastName, 'Last name'));
 
     next();
   },
   (req, res, next) => {
-    if (req.body.phoneNumber.length === 0) {
+    const fullName = `${res.locals.firstName} ${res.locals.lastName}`;
+    res.locals.errorMessages.push(...validateName(fullName, 'Full name'));
+
+    next();
+  },
+  (req, res, next) => {
+    const phoneNumber = res.locals.phoneNumber;
+    if (phoneNumber.length === 0) {
       res.locals.errorMessages.push('Phone number is required.');
     }
-    
+    if (!isValidPhoneNumber(phoneNumber)) {
+      res.locals.errorMessages.push('Phone number format should be ###-###-####.');
+    }
     next();
   },
   (req, res, next) => {
     if (res.locals.errorMessages.length > 0) {
       res.render('new-contact-form', {
         errorMessages: res.locals.errorMessages,
+        firstName: res.locals.firstName,
+        lastName: res.locals.lastName,
+        phoneNumber: res.locals.phoneNumber,
       });
     } else {
       next();
