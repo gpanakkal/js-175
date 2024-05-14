@@ -3,26 +3,11 @@ extends layout
 block page_title 
   title This is the page title
 
-block navigation_links 
-  ul
-    li
-      a.current(href="/english")
-        img.flag(src="/images/flag_us.png"
-                  alt="US Flag"
-                  title="Go to US English site")
-    li
-      a(href="/french")
-        img.flag(src="/images/flag_fr.png"
-                  alt="Drapeau de la france"
-                  title="Aller sur le site français")
-    li
-      a(href="/serbian")
-        img.flag(src="/images/flag_rs.png"
-                  alt="Застава Србије"
-                  title="Идите на српски сајт")
-
 block greeting 
   h1 Hello World!
 
 block software_engineer
   p I'm going to be a software engineer soon!
+  img(src="/images/earth.jpg" 
+      alt="The Earth" 
+      title="The Earth")
