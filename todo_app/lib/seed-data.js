@@ -4,6 +4,7 @@ import Todo from './todo.js';
 const todoList1 = new TodoList('Work Todos');
 todoList1.add(new Todo('Get coffee'));
 todoList1.add(new Todo('Chat with coworkers'));
+todoList1.add(new Todo('Write documentation'));
 todoList1.add(new Todo('Duck out of meeting'));
 todoList1.markDone('Get coffee');
 todoList1.markDone('Chat with coworkers');

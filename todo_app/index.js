@@ -1,3 +1,4 @@
+// #region IMPORTS
 import express from 'express';
 import morgan from 'morgan';
 import todoLists from './lib/seed-data.js';
@@ -5,6 +6,8 @@ import TodoList from './lib/todolist.js';
 import flash from 'express-flash';
 import session from 'express-session';
 import { body, validationResult } from 'express-validator';
+import { sortTodoLists, sortTodos } from './lib/sort.js';
+// #endregion
 
 // #region CONSTANTS
 const PORT = 3000;
@@ -14,12 +17,12 @@ const MAX_TITLE_LENGTH = 100;
 // #endregion
 
 // #region HELPERS
-const sortTodoLists = (lists) => lists
-  .toSorted((a, b) => ((a.title.toLowerCase() > b.title.toLowerCase()) - 0.5))
-  .toSorted((a, b) => (a.isDone() - b.isDone()));
-
 const titleIsUnique = (title) => !todoLists
   .some((list) => list.title.toLowerCase() === title.toLowerCase());
+
+const getTodoList = (todoListId) => {
+  return todoLists.find((todoList) => todoList.id === Number(todoListId));
+}
 // #endregion
 
 // #region TEMPLATING ENGINE
@@ -43,6 +46,11 @@ app.use((req, res, next) => {
   delete req.session.flash;
   next();
 });
+
+app.use((err, req, res, next) => {
+  console.log(err);
+  res.status(404).send(err.message);
+})
 // #endregion
 
 //  #region ROUTES
@@ -57,6 +65,30 @@ app.get('/lists', (req, res) => {
 
 app.get('/lists/new', (req, res) => {
   res.render('new-list');
+});
+
+app.get('/lists/:listId', (req, res) => {
+  const todoList = getTodoList(req.params.listId);
+  if (!todoList) {
+    next(new Error('List not found'));
+  } else {
+    res.render('list', {
+      todoList,
+      todos: sortTodos(todoList),
+    });
+  }
+});
+
+app.get('/list/:listId/edit', (req, res) => {
+  const todoList = getTodoList(req.params.listId);
+  if (!todoList) {
+    next(new Error('List not found'));
+  } else {
+    res.render('list', {
+      todoList,
+      todos: sortTodos(todoList),
+    });
+  }
 });
 
 app.post('/lists',
