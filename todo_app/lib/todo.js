@@ -5,6 +5,10 @@ export default class Todo {
 
   static DONE_MARKER = 'X';
 
+  static createInstance(rawTodo) {
+    return Object.assign(new Todo(), rawTodo);
+  }
+
   constructor(title) {
     this.id = nextId();
     this.title = title;

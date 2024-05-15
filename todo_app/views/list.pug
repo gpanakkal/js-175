@@ -2,14 +2,14 @@ extends layout
 
 block headerLinks 
   .actions 
-    a.list(href='/lists') All lists 
+    a.list(href='/lists') All Lists 
 
 block main
   section#todos(class=todoList.isDone() ? 'done' : '')
     header
       h2= todoList.title 
       ul 
-        if todoList.size > 0 && !todoList.isDone()
+        if todoList.size() > 0 && !todoList.isDone()
           li
             form.complete_all(action=`/lists/${todoList.id}/complete_all`
                               method='post')
@@ -35,7 +35,7 @@ block main
     form(action=`/lists/${todoList.id}/todos` method='post')
       dl 
         dt
-          label(for='todoListTitle') Enter a new todo item:
+          label(for='todoTitle') Enter a new todo item:
         dd
           input(type='text'
                 id='todoTitle'
