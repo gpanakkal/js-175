@@ -3,6 +3,17 @@ import nextId from './next-id.js';
 import Todo from './todo.js';
 
 export default class TodoList {
+
+  static createInstance(rawTodoList) {
+    const instance = Object.assign(new TodoList(), {
+      title: rawTodoList.title,
+      id: rawTodoList.id,
+    });
+    const classedTodos = rawTodoList.todos.map((rawTodo) => Todo.createInstance(rawTodo));
+    instance.addMultiple(classedTodos);
+    return instance;
+  }
+
   constructor(title) {
     this.id = nextId();
     this.title = title;
@@ -20,6 +31,10 @@ export default class TodoList {
       throw new TypeError('can only add Todo objects');
     }
     this.todos.push(todo);
+  }
+
+  addMultiple(todos) {
+    todos.forEach((todo) => this.add(todo));
   }
 
   size() {

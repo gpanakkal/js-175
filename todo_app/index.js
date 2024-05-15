@@ -64,10 +64,15 @@ app.use(session({
 app.use(flash());
 
 app.use((req, res, next) => {
-  if(!('todoLists' in req.session)) {
-    req.session.todoLists = [];
+  const todoLists = [];
+  if(('todoLists' in req.session)) {
+    req.session.todoLists.forEach((rawTodoList) => {
+      const listInstance = TodoList.createInstance(rawTodoList);
+      todoLists.push(listInstance);
+    });
   }
-
+  
+  req.session.todoLists = todoLists;
   next();
 });
 
