@@ -18,32 +18,8 @@ const sortTodoLists = (lists) => lists
   .toSorted((a, b) => ((a.title.toLowerCase() > b.title.toLowerCase()) - 0.5))
   .toSorted((a, b) => (a.isDone() - b.isDone()));
 
-const validateTitle = (req, res) => {
-  const { todoListTitle } = req.body;
-  const title = todoListTitle.trim();
-  if (title.length === 0) {
-    req.flash('error', 'A title was not provided.');
-    res.render('new-list', {
-      flash: req.flash(),
-    });
-  } else if (title.length > MAX_TITLE_LENGTH) {
-    req.flash('error', 'Title must be 100 characters or fewer.');
-    res.render('new-list', {
-      flash: req.flash(),
-      todoListTitle,
-    });
-  } else if (todoLists.some((todoList) => todoList.title === title)) {
-    req.flash('error', 'A list with this title already exists.');
-    res.render('new-list', {
-      flash: req.flash(),
-      todoListTitle,
-    });
-  } else {
-    todoLists.push(new TodoList(title));
-    req.flash('success', 'The todo list has been created');
-    res.redirect('/lists');
-  }
-}
+const titleIsUnique = (title) => !todoLists
+  .some((list) => list.title.toLowerCase() === title.toLowerCase());
 // #endregion
 
 // #region TEMPLATING ENGINE
@@ -83,9 +59,32 @@ app.get('/lists/new', (req, res) => {
   res.render('new-list');
 });
 
-app.post('/lists', (req, res) => {
-  validateTitle(req, res);
-})
+app.post('/lists',
+  [
+    body('todoListTitle')
+      .trim()
+      .isLength({ min: 1 })
+      .withMessage('The list title is required.')
+      .isLength({ max: MAX_TITLE_LENGTH })
+      .withMessage('Title must be 100 characters or fewer.')
+      .custom(titleIsUnique)
+      .withMessage('A list with this title already exists.'),
+  ],
+  (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      errors.array().forEach((error) => req.flash('error', error.msg));
+      res.render('new-list', {
+        flash: req.flash(),
+        todoListTitle: req.body.todoListTitle,
+      });
+    } else {
+      todoLists.push(new TodoList(req.body.todoListTitle));
+      req.flash('success', 'The todo list has been created.');
+      res.redirect('/lists');
+    }
+  }
+);
 // #endregion
 
 // #region SERVER INIT
